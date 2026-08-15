@@ -8,6 +8,14 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowUp, faArrowDown, faArrowLeft, faArrowRight } from "@fortawesome/free-solid-svg-icons";
 
 const STEP = 10;
+const BOUNDS = {
+  minX: -300,
+  maxX: 300,
+  minY: -200,
+  maxY: 200,
+};
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 function Cats() {
   const [catLocation, setCatLocation] = useState(
@@ -15,10 +23,10 @@ function Cats() {
     y: 0,}
   );
 
-  const moveUp = () => setCatLocation((prev) => ({ ...prev, y: prev.y - STEP }));
-  const moveDown = () => setCatLocation((prev) => ({ ...prev, y: prev.y + STEP }));
-  const moveLeft = () => setCatLocation((prev) => ({ ...prev, x: prev.x - STEP }));
-  const moveRight = () => setCatLocation((prev) => ({ ...prev, x: prev.x + STEP }));
+const moveUp = () => setCatLocation((prev) => ({ ...prev, y: clamp(prev.y - STEP, BOUNDS.minY, BOUNDS.maxY) }));
+const moveDown = () => setCatLocation((prev) => ({ ...prev, y: clamp(prev.y + STEP, BOUNDS.minY, BOUNDS.maxY) }));
+const moveLeft = () => setCatLocation((prev) => ({ ...prev, x: clamp(prev.x - STEP, BOUNDS.minX, BOUNDS.maxX) }));
+const moveRight = () => setCatLocation((prev) => ({ ...prev, x: clamp(prev.x + STEP, BOUNDS.minX, BOUNDS.maxX) }));
 
   return (
     <> <div>

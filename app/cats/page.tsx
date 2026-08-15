@@ -1,7 +1,6 @@
 'use client';
 
-import Cat from '../assets/sprites/cat.png';
-import Image from "next/image";
+import Ember from '../assets/sprites/Ember.png';
 import { useState, useEffect } from "react";
 
 const STEP = 10;
@@ -19,21 +18,37 @@ const BURSTS = {
   long: [7, 10],
 };
 
-const STEP_DELAY = 120; 
+const STEP_DELAY = 120;
 const PAUSE_RANGE = [400, 1200];
+const REVERSE_CHANCE = 0.3; // chance to flip direction at the start of each burst
+
+const FRAME_SIZE = 32; // each frame in the sprite sheet is 32x32px
+const REST_FRAME = 0;  // frame index 0 = rest (top of the sheet)
+const WALK_FRAMES = [1, 2, 3]; // walk A, walk B, walk C
+const ANIM_FRAME_DELAY = 150; // ms between leg-cycle frames while walking
 
 type CatLocation = {
   x: number;
   y: number;
 };
 
-type Direction = "up" | "down" | "left" | "right";
+type Facing = "up" | "down" | "left" | "right";
+
+type MovementPhase = "walking" | "resting";
+
+type PerimeterState = {
+  progress: number;   // distance traveled along the perimeter loop
+  direction: 1 | -1;  // 1 = clockwise, -1 = counter-clockwise
+};
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
 
 const randomInt = (min: number, max: number): number =>
   Math.floor(Math.random() * (max - min + 1)) + min;
+
+// positive modulo, since JS % can return negative results
+const mod = (n: number, m: number): number => ((n % m) + m) % m;
 
 const pickBurstLength = (): number => {
   const types = Object.keys(BURSTS) as Array<keyof typeof BURSTS>;
@@ -42,42 +57,116 @@ const pickBurstLength = (): number => {
   return randomInt(min, max);
 };
 
-const pickDirection = (): Direction => {
-  const directions: Direction[] = ["up", "down", "left", "right"];
-  return directions[randomInt(0, 3)];
+// perimeter geometry: clockwise loop starting at top-left corner
+const PERIM_WIDTH = BOUNDS.maxX - BOUNDS.minX;
+const PERIM_HEIGHT = BOUNDS.maxY - BOUNDS.minY;
+const PERIM_TOTAL = 2 * PERIM_WIDTH + 2 * PERIM_HEIGHT;
+
+// convert progress along the loop into an {x, y} position
+const getPositionOnPerimeter = (progress: number): CatLocation => {
+  const p = mod(progress, PERIM_TOTAL);
+
+  if (p < PERIM_WIDTH) {
+    // top edge, left -> right
+    return { x: BOUNDS.minX + p, y: BOUNDS.minY };
+  } else if (p < PERIM_WIDTH + PERIM_HEIGHT) {
+    // right edge, top -> bottom
+    const t = p - PERIM_WIDTH;
+    return { x: BOUNDS.maxX, y: BOUNDS.minY + t };
+  } else if (p < 2 * PERIM_WIDTH + PERIM_HEIGHT) {
+    // bottom edge, right -> left
+    const t = p - PERIM_WIDTH - PERIM_HEIGHT;
+    return { x: BOUNDS.maxX - t, y: BOUNDS.maxY };
+  } else {
+    // left edge, bottom -> top
+    const t = p - 2 * PERIM_WIDTH - PERIM_HEIGHT;
+    return { x: BOUNDS.minX, y: BOUNDS.maxY - t };
+  }
+};
+
+// which edge the cat is currently on, needed to derive facing + sprite transform
+const getCurrentEdge = (progress: number): "top" | "right" | "bottom" | "left" => {
+  const p = mod(progress, PERIM_TOTAL);
+  if (p < PERIM_WIDTH) return "top";
+  if (p < PERIM_WIDTH + PERIM_HEIGHT) return "right";
+  if (p < 2 * PERIM_WIDTH + PERIM_HEIGHT) return "bottom";
+  return "left";
+};
+
+// facing when moving clockwise, per edge — flipped for counter-clockwise
+const CLOCKWISE_FACING: Record<"top" | "right" | "bottom" | "left", Facing> = {
+  top: "right",
+  right: "down",
+  bottom: "left",
+  left: "up",
+};
+
+const OPPOSITE_FACING: Record<Facing, Facing> = {
+  right: "left",
+  left: "right",
+  up: "down",
+  down: "up",
+};
+
+const getFacing = (progress: number, direction: 1 | -1): Facing => {
+  const edge = getCurrentEdge(progress);
+  const clockwiseFacing = CLOCKWISE_FACING[edge];
+  return direction === 1 ? clockwiseFacing : OPPOSITE_FACING[clockwiseFacing];
+};
+
+// computes the full CSS transform for the sprite: mirror on horizontal edges,
+// rotate + conditional mirror on vertical edges so feet stay on the perimeter
+// and the head points toward the center of the viewport
+const getSpriteTransform = (progress: number, direction: 1 | -1): string => {
+  const edge = getCurrentEdge(progress);
+
+  if (edge === "top" || edge === "bottom") {
+    const facing = getFacing(progress, direction);
+    return facing === "right" ? "scaleX(-1)" : "scaleX(1)";
+  }
+
+  const rotateDeg = edge === "left" ? 90 : -90;
+  const needsMirror = direction === -1;
+  return needsMirror ? `rotate(${rotateDeg}deg) scaleX(-1)` : `rotate(${rotateDeg}deg)`;
 };
 
 function Cats() {
-  const [catLocation, setCatLocation] = useState<CatLocation>({ x: 0, y: 0 });
+  const [perimeterState, setPerimeterState] = useState<PerimeterState>({
+    progress: 0,
+    direction: 1,
+  });
+  const [movementPhase, setMovementPhase] = useState<MovementPhase>("resting");
+  const [walkFrameIndex, setWalkFrameIndex] = useState(0); // index into WALK_FRAMES
+
+  const catLocation = getPositionOnPerimeter(perimeterState.progress);
+  const facing = getFacing(perimeterState.progress, perimeterState.direction);
 
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
 
     const runBurst = (): void => {
-      const direction: Direction = pickDirection();
       const stepsRemaining: number = pickBurstLength();
+
+      // chance to reverse direction at the start of a burst
+      setPerimeterState((prev) => {
+        const shouldReverse = Math.random() < REVERSE_CHANCE;
+        return shouldReverse ? { ...prev, direction: prev.direction === 1 ? -1 : 1 } : prev;
+      });
+
+      setMovementPhase("walking");
 
       const takeStep = (stepsLeft: number): void => {
         if (stepsLeft <= 0) {
+          setMovementPhase("resting");
           const pauseDuration = randomInt(PAUSE_RANGE[0], PAUSE_RANGE[1]);
           timeoutId = setTimeout(runBurst, pauseDuration);
           return;
         }
 
-        setCatLocation((prev: CatLocation): CatLocation => {
-          switch (direction) {
-            case "up":
-              return { ...prev, y: clamp(prev.y - STEP, BOUNDS.minY, BOUNDS.maxY) };
-            case "down":
-              return { ...prev, y: clamp(prev.y + STEP, BOUNDS.minY, BOUNDS.maxY) };
-            case "left":
-              return { ...prev, x: clamp(prev.x - STEP, BOUNDS.minX, BOUNDS.maxX) };
-            case "right":
-              return { ...prev, x: clamp(prev.x + STEP, BOUNDS.minX, BOUNDS.maxX) };
-            default:
-              return prev;
-          }
-        });
+        setPerimeterState((prev) => ({
+          ...prev,
+          progress: mod(prev.progress + STEP * prev.direction, PERIM_TOTAL),
+        }));
 
         timeoutId = setTimeout(() => takeStep(stepsLeft - 1), STEP_DELAY);
       };
@@ -89,6 +178,29 @@ function Cats() {
 
     return () => clearTimeout(timeoutId);
   }, []);
+
+  // separate timer: cycles the leg-animation frame while walking
+  useEffect(() => {
+    if (movementPhase !== "walking") return;
+
+    const intervalId = setInterval(() => {
+      setWalkFrameIndex((prev) => (prev + 1) % WALK_FRAMES.length);
+    }, ANIM_FRAME_DELAY);
+
+    return () => clearInterval(intervalId);
+  }, [movementPhase]);
+
+  const currentFrame = movementPhase === "resting" ? REST_FRAME : WALK_FRAMES[walkFrameIndex];
+
+  const spriteStyle: React.CSSProperties = {
+    width: `${FRAME_SIZE}px`,
+    height: `${FRAME_SIZE}px`,
+    backgroundImage: `url(${Ember.src})`,
+    backgroundPosition: `0px -${currentFrame * FRAME_SIZE}px`,
+    backgroundRepeat: "no-repeat",
+    imageRendering: "pixelated",
+    transform: getSpriteTransform(perimeterState.progress, perimeterState.direction),
+  };
 
   return (
     <>
@@ -105,7 +217,7 @@ function Cats() {
             transform: "translate(-50%, -50%)",
           }}
         >
-          <Image src={Cat} alt="Cat" />
+          <div style={spriteStyle} aria-label={`Cat facing ${facing}, ${movementPhase}`} role="img" />
         </div>
       </div>
     </>

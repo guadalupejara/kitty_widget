@@ -1,0 +1,1 @@
+// owns walkFrameIndex, runs the animation useEffect, takes movementPhase as an argument, returns currentFrame.

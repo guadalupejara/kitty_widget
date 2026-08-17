@@ -1,3 +1,6 @@
+// becomes short: calls usePerimeterWalk(), calls useWalkAnimation(movementPhase), 
+// computes the outer positioning style from x/y, renders the page layout (<h1>, wrapper divs) and <CatSprite>.
+
 'use client';
 
 import Ember from '../assets/sprites/Ember.png';

@@ -1,0 +1,2 @@
+// These aren't cat-specific at all; they're generic helpers. Worth keeping separate from cat-specific math 
+// since these are the ones most likely to get reused verbatim once FreeRoamCats needs the same utilities.

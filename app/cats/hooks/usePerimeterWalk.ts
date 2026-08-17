@@ -1,0 +1,1 @@
+// This hook uses perimeterMath.ts and mathUtils.ts internally but doesn't contain any of that math itself.

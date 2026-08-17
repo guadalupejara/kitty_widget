@@ -1,0 +1,2 @@
+// a small presentational component taking { frame, transform, facing, movementPhase } (or similar) as props, rendering the styled 
+// <div> with backgroundImage/backgroundPosition/transform. No state, no logic — just "draw this frame with this transform."

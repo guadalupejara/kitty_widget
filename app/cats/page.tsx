@@ -5,6 +5,7 @@
 
 import Ember from '../assets/sprites/Ember.png';
 import { useState, useEffect } from "react";
+import { clamp, randomInt, mod } from './lib/mathUtils'
 
 const STEP = 10;
 
@@ -43,15 +44,6 @@ type PerimeterState = {
   progress: number;   // distance traveled along the perimeter loop
   direction: 1 | -1;  // 1 = clockwise, -1 = counter-clockwise
 };
-
-const clamp = (value: number, min: number, max: number): number =>
-  Math.min(Math.max(value, min), max);
-
-const randomInt = (min: number, max: number): number =>
-  Math.floor(Math.random() * (max - min + 1)) + min;
-
-// positive modulo, since JS % can return negative results
-const mod = (n: number, m: number): number => ((n % m) + m) % m;
 
 const pickBurstLength = (): number => {
   const types = Object.keys(BURSTS) as Array<keyof typeof BURSTS>;

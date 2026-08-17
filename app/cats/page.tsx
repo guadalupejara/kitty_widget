@@ -1,30 +1,13 @@
 'use client';
 
 import Ember from '../assets/sprites/Ember.png';
-import { useState, useEffect } from "react";
 import { usePerimeterWalk } from './hooks/usePerimeterWalk';
-
-const FRAME_SIZE = 32; // each frame in the sprite sheet is 32x32px
-const REST_FRAME = 0;  // frame index 0 = rest (top of the sheet)
-const WALK_FRAMES = [1, 2, 3]; // walk A, walk B, walk C
-const ANIM_FRAME_DELAY = 150; // ms between leg-cycle frames while walking
+import { FRAME_SIZE } from './constants';
+import { useWalkAnimation } from './hooks/useWalkAnimation';
 
 function Cats() {
   const { location, facing, movementPhase, spriteTransform } = usePerimeterWalk();
-  const [walkFrameIndex, setWalkFrameIndex] = useState(0); // index into WALK_FRAMES
-
-  // separate timer: cycles the leg-animation frame while walking
-  useEffect(() => {
-    if (movementPhase !== "walking") return;
-
-    const intervalId = setInterval(() => {
-      setWalkFrameIndex((prev) => (prev + 1) % WALK_FRAMES.length);
-    }, ANIM_FRAME_DELAY);
-
-    return () => clearInterval(intervalId);
-  }, [movementPhase]);
-
-  const currentFrame = movementPhase === "resting" ? REST_FRAME : WALK_FRAMES[walkFrameIndex];
+  const currentFrame = useWalkAnimation(movementPhase);
 
   const spriteStyle: React.CSSProperties = {
     width: `${FRAME_SIZE}px`,

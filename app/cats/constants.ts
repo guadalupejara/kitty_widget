@@ -19,3 +19,8 @@ export const BURSTS = {
 export const STEP_DELAY = 120;
 export const PAUSE_RANGE = [400, 1200];
 export const REVERSE_CHANCE = 0.3;
+
+export const FRAME_SIZE = 32;
+   export const REST_FRAME = 0;
+   export const WALK_FRAMES = [1, 2, 3];
+   export const ANIM_FRAME_DELAY = 150;

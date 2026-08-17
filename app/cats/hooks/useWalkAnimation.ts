@@ -5,6 +5,7 @@ import { REST_FRAME, WALK_FRAMES, ANIM_FRAME_DELAY } from '../constants';
 
 export function useWalkAnimation(movementPhase: MovementPhase): number {
   const [walkFrameIndex, setWalkFrameIndex] = useState(0); // index into WALK_FRAMES
+  console.log("merp");
 
   useEffect(() => {
     if (movementPhase !== "walking") return;
